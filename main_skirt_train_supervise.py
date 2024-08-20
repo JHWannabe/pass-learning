@@ -6,11 +6,15 @@ import torch.nn as nn
 from data import create_dataset, create_dataloader
 from models import Supervised
 from focal_loss import FocalLoss
-from train import training_supervise
+from train import training_supervise, training_iter_supervise
 from log import setup_default_logging
 from scheduler import CosineAnnealingWarmupRestarts
 from RD4AD import resnet
 from configparser import ConfigParser
+import warnings
+
+# 모든 경고 무시
+warnings.filterwarnings("ignore")
 
 _logger = logging.getLogger('train')
 
@@ -80,6 +84,8 @@ def run_training(cfg):
             param.requires_grad = False
         if 'layer3' in name:
             param.requires_grad = False
+        if 'layer4' in name:
+            param.requires_grad = False
 
     RD4AD_encoder.train()
 
@@ -116,13 +122,14 @@ def run_training(cfg):
         scheduler = None
 
     # Fitting model
-    training_supervise(
+    training_iter_supervise(
         supervised_model = supervised_model,
         num_training_steps = int(cfg['Train']['epochs']),
         trainloader        = trainloader, 
         validloader        = testloader, 
         criterion          = [l1_criterion, f_criterion], 
         loss_weights       = [float(cfg['Train']['l1_weight']), float(cfg['Train']['focal_weight'])],
+        resize             = (int(cfg['DataSet']['resize(h)']), int(cfg['DataSet']['resize(w)'])),
         optimizer          = optimizer,
         scheduler          = scheduler,
         log_interval       = int(cfg['Log']['log_interval']),

@@ -122,6 +122,7 @@ def run_training(cfg):
         validloader        = testloader, 
         criterion          = [l1_criterion, f_criterion], 
         loss_weights       = [float(cfg['Train']['l1_weight']), float(cfg['Train']['focal_weight'])],
+        resize             = (int(cfg['DataSet']['resize(h)']), int(cfg['DataSet']['resize(w)'])),
         optimizer          = optimizer,
         scheduler          = scheduler,
         log_interval       = int(cfg['Log']['log_interval']),

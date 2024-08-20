@@ -33,8 +33,7 @@ class Dataset(Dataset):
         self.target = target
         match target:
             case "head" | "land":
-                self.file_list = glob(os.path.join(self.datadir, self.target, 'OK_Real/*.jpg' if train else 'test/*/*.jpg'))
-                # self.file_list = glob(os.path.join(self.datadir, self.target, 'OK_Real/*.jpg' if train else 'NG_Real/*.jpg'))
+                self.file_list = glob(os.path.join(self.datadir, self.target, 'train/*.jpg' if train else 'test/*/*.jpg'))
             case "skirt" | "zumul":
                 self.file_list = glob(os.path.join(self.datadir, self.target, 'train/*/*.jpg' if train else 'test/*/*/*.jpg'))
 
@@ -73,8 +72,10 @@ class Dataset(Dataset):
                 self.notfound_label_list = glob(os.path.join('Z:/retraining_imgs', self.target, 'notfound/label/*.jpg'))
 
                 self.overkill_img_list = glob(os.path.join('Z:/retraining_imgs', self.target, 'overkill/origin/*.jpg'))
-                # self.overkill_img_list = glob(os.path.join('Z:/Data', self.target, 'train/*.jpg'))
                 self.overkill_img_list_num = 0
+
+                self.all_list = glob(os.path.join('Z:/retraining_imgs', self.target, '*/origin/*.jpg'))
+                self.all_list_num = 0
 
             case "skirt" | "zumul":
                 self.notfound_img_list = glob(os.path.join('Z:/retraining_imgs', self.target, 'notfound/origin/*/*.jpg'))
@@ -82,11 +83,14 @@ class Dataset(Dataset):
                 self.notfound_label_list = glob(os.path.join('Z:/retraining_imgs', self.target, 'notfound/label/*/*.jpg'))
 
                 self.overkill_img_list = glob(os.path.join('Z:/retraining_imgs', self.target, 'overkill/origin/*/*.jpg'))
-                # self.overkill_img_list = glob(os.path.join('Z:/Data', self.target, 'train/*/*.jpg'))
                 self.overkill_img_list_num = 0
+
+                self.all_list = glob(os.path.join('Z:/retraining_imgs', self.target, '*/origin/*/*.jpg'))
+                self.all_list_num = 0
 
         random.shuffle(self.notfound_img_list)
         random.shuffle(self.overkill_img_list)
+        random.shuffle(self.all_list)
 
         self.period_count = 0
         self.sub_period_count = 0
@@ -97,14 +101,23 @@ class Dataset(Dataset):
         if self.retraining == False: # 재학습 아닐때
             file_path = self.file_list[idx]
 
+            if self.target in ['skirt', 'zumul']:
+                if '_b' in file_path:
+                    file_name = 'b' + os.path.splitext(os.path.basename(file_path))[0]
+                elif '_a' in file_path:
+                    file_name = 'a' + os.path.splitext(os.path.basename(file_path))[0]
+            else:
+                file_name = os.path.splitext(os.path.basename(file_path))[0]
+
             if "NG" in file_path:
                 y_true = 0
             else:
                 y_true = 1
-            file_name = os.path.splitext(os.path.basename(file_path))[0]
+            
             
             # image
             img = cv2.imread(file_path,cv2.IMREAD_COLOR)
+            img_gray = cv2.imread(file_path,cv2.IMREAD_GRAYSCALE)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             img = cv2.resize(img, dsize=(self.resize[1], self.resize[0]))
             # mask
@@ -112,18 +125,10 @@ class Dataset(Dataset):
 
             # anomaly source
             if not self.to_memory and self.train:
-                # current_date = datetime.datetime.now().strftime("%Y%m%d")
                 if self.anomaly_switch:
                     img, mask = self.generate_anomaly(img=img)
-                    # if(self.img_count % 11 == 0):
-                    #     img_num = self.img_count // 11
-                    #     cv2.imwrite(f'Z:/retraining_imgs/{self.target}/notfound/origin/{current_date}_{img_num}.jpg', img)
-                    #     cv2.imwrite(f'Z:/retraining_imgs/{self.target}/notfound/label/{current_date}_{img_num}.jpg', mask * 255)
                     self.anomaly_switch = False
                 else:
-                    # if(self.img_count % 11 == 0):
-                    #     img_num = self.img_count // 11
-                    #     cv2.imwrite(f'Z:/retraining_imgs/{self.target}/overkill/origin/{current_date}_{img_num}.jpg', img)
                     self.anomaly_switch = True
 
             self.img_count = self.img_count + 1
@@ -134,50 +139,76 @@ class Dataset(Dataset):
             if(self.train):
                 return img, mask, y_true
             else:
-                return img, mask, y_true, file_name
+                return img, mask, y_true, file_name, img_gray
         
         else: # 재학습 일때
-            if (self.period_count == self.retraining_period) and (self.sub_period_count == 0) :  # 미검 update
-                ## img load
-                file_path = self.notfound_img_list[self.notfound_img_list_num]
-                img = cv2.imread(file_path, cv2.IMREAD_COLOR)
+            file_path = self.all_list[idx]
 
-                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                img = cv2.resize(img, dsize=(self.resize[1], self.resize[0]))
-                ## label load
+            img = cv2.imread(file_path, cv2.IMREAD_COLOR)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            img = cv2.resize(img, dsize=(self.resize[1], self.resize[0]))
+
+            if 'overkill' in file_path:
+                mask = np.zeros(self.resize, dtype=np.int_)
+
+            else:
                 label_path = file_path.replace('origin','label')
                 mask = cv2.imread(label_path, cv2.IMREAD_GRAYSCALE)
                 mask = cv2.resize(mask, dsize=(self.resize[1], self.resize[0])).astype(np.bool_).astype(np.int_)
 
-                img = self.transform(img)
-                mask = torch.Tensor(mask).to(torch.int64)
+            img = self.transform(img)
+            mask = torch.Tensor(mask).to(torch.int64)
 
-                self.notfound_img_list_num = self.notfound_img_list_num+1
-                if self.notfound_img_list_num == len(self.notfound_img_list):
-                    self.notfound_img_list_num = 0
-                self.sub_period_count = 1
+            self.all_list_num = self.all_list_num + 1
+            if self.all_list_num == len(self.all_list):
+                self.all_list_num = 0
 
-                return img, mask
+            self.period_count = self.period_count + 1
 
-            elif self.period_count == self.retraining_period and (self.sub_period_count == 1):  # 과검 update
-                ## img load
-                file_path = self.overkill_img_list[self.overkill_img_list_num]
-                img = cv2.imread(file_path, cv2.IMREAD_COLOR)
-                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                img = cv2.resize(img, dsize=(self.resize[1], self.resize[0]))
+            return img, mask
+
+
+            # if (self.period_count == self.retraining_period) and (self.sub_period_count == 0) :  # 미검 update
+            #     ## img load
+            #     file_path = self.notfound_img_list[self.notfound_img_list_num]
+            #     img = cv2.imread(file_path, cv2.IMREAD_COLOR)
+
+            #     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            #     img = cv2.resize(img, dsize=(self.resize[1], self.resize[0]))
+            #     ## label load
+            #     label_path = file_path.replace('origin','label')
+            #     mask = cv2.imread(label_path, cv2.IMREAD_GRAYSCALE)
+            #     mask = cv2.resize(mask, dsize=(self.resize[1], self.resize[0])).astype(np.bool_).astype(np.int_)
+
+            #     img = self.transform(img)
+            #     mask = torch.Tensor(mask).to(torch.int64)
+
+            #     self.notfound_img_list_num = self.notfound_img_list_num+1
+            #     if self.notfound_img_list_num == len(self.notfound_img_list):
+            #         self.notfound_img_list_num = 0
+            #     self.sub_period_count = 1
+
+            #     return img, mask
+
+            # elif self.period_count == self.retraining_period and (self.sub_period_count == 1):  # 과검 update
+            #     ## img load
+            #     file_path = self.overkill_img_list[self.overkill_img_list_num]
+            #     img = cv2.imread(file_path, cv2.IMREAD_COLOR)
+            #     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            #     img = cv2.resize(img, dsize=(self.resize[1], self.resize[0]))
             
-                ## label load
-                mask = np.zeros(self.resize, dtype=np.int_)
+            #     ## label load
+            #     mask = np.zeros(self.resize, dtype=np.int_)
             
-                img = self.transform(img)
-                mask = torch.Tensor(mask).to(torch.int64)
+            #     img = self.transform(img)
+            #     mask = torch.Tensor(mask).to(torch.int64)
             
-                self.overkill_img_list_num = self.overkill_img_list_num+1
-                if self.overkill_img_list_num == len(self.overkill_img_list):
-                    self.overkill_img_list_num = 0
-                #self.sub_period_count = 0
+            #     self.overkill_img_list_num = self.overkill_img_list_num+1
+            #     if self.overkill_img_list_num == len(self.overkill_img_list):
+            #         self.overkill_img_list_num = 0
+            #     self.sub_period_count = 0
             
-                return img, mask
+            #     return img, mask    
         
     def rand_augment(self):
         augmenters = [
@@ -341,4 +372,7 @@ class Dataset(Dataset):
         return structure_source_img
         
     def __len__(self):
-        return len(self.file_list)
+        if self.retraining == True:
+            return len(self.all_list)
+        elif self.retraining == False or self.train == False:
+            return len(self.file_list)

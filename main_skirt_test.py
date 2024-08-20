@@ -7,6 +7,12 @@ from models import Supervised
 from test import test_only
 from log import setup_default_logging
 from RD4AD import resnet
+import time
+import warnings
+
+# 모든 경고 무시
+warnings.filterwarnings("ignore")
+
 
 _logger = logging.getLogger('train')
 
@@ -47,12 +53,11 @@ def run_test(cfg):
 
     supervised_model = Supervised(feature_extractor = RD4AD_encoder).to(device)
 
-    # Fitting model
-    for j in range(2, 250, 3):
-        epoch = (j+1)*20
-        print(epoch ,"epoch model testing...")
-        #file_path = cfg['Test']['model_weight']
-        file_path = f'D:/JHChun/model_weight/skirt/super/supervised_model_0702_{epoch}.pth'
+    # Fitting models
+    for j in range(2, 100, 3):
+        epoch = j+1
+        file_path = cfg['Test']['model_weight']
+        file_path = f'D:/JHChun/model_weight/skirt/0811/supervised_model_0811_{epoch}.pth'
         folder_path = cfg['Test']['result_dir']
         supervised_model = torch.jit.load(file_path).to(device)
         supervised_model.eval()
@@ -65,6 +70,7 @@ def run_test(cfg):
         target=cfg['DataSet']['target'],
         device=device
         )
+
 
 if __name__=='__main__':
     config = ConfigParser()

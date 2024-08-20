@@ -34,8 +34,8 @@ def run_training(cfg):
         texture_source_dir     = cfg['DataSet']['texture_source_dir'],
         structure_grid_size    = int(cfg['DataSet']['structure_grid_size']),
         transparency_range     = [float(cfg['DataSet']['transparency_range_under_bound']), float(cfg['DataSet']['transparency_range_upper_bound'])],
-        perlin_scale           = int(cfg['DataSet']['perlin_scale']),
-        min_perlin_scale       = int(cfg['DataSet']['min_perlin_scale']),
+        perlin_scale           = int(cfg['DataSet']['perlin_scale']), 
+        min_perlin_scale       = int(cfg['DataSet']['min_perlin_scale']), 
         perlin_noise_threshold = float(cfg['DataSet']['perlin_noise_threshold']),
         retraining = False
     )
@@ -48,8 +48,8 @@ def run_training(cfg):
         texture_source_dir     = cfg['DataSet']['texture_source_dir'],
         structure_grid_size    = int(cfg['DataSet']['structure_grid_size']),
         transparency_range     = [float(cfg['DataSet']['transparency_range_under_bound']), float(cfg['DataSet']['transparency_range_upper_bound'])],
-        perlin_scale           = int(cfg['DataSet']['perlin_scale']),
-        min_perlin_scale       = int(cfg['DataSet']['min_perlin_scale']),
+        perlin_scale           = int(cfg['DataSet']['perlin_scale']), 
+        min_perlin_scale       = int(cfg['DataSet']['min_perlin_scale']), 
         perlin_noise_threshold = float(cfg['DataSet']['perlin_noise_threshold'])
     )
     
@@ -122,7 +122,6 @@ def run_training(cfg):
         validloader        = testloader, 
         criterion          = [l1_criterion, f_criterion], 
         loss_weights       = [float(cfg['Train']['l1_weight']), float(cfg['Train']['focal_weight'])],
-        resize             = (int(cfg['DataSet']['resize(h)']), int(cfg['DataSet']['resize(w)'])),
         optimizer          = optimizer,
         scheduler          = scheduler,
         log_interval       = int(cfg['Log']['log_interval']),
@@ -134,5 +133,5 @@ def run_training(cfg):
 
 if __name__=='__main__':
     config = ConfigParser()
-    config.read('configs/skirt_config.ini')
+    config.read('configs/rend_config.ini')
     run_training(config)

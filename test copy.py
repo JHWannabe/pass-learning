@@ -142,3 +142,9 @@ def test_only(supervised_model, dataloader, folder_path, num, target, device: st
             cm = confusion_matrix_pytorch(torch.tensor([y_true_list]), torch.tensor([y_pred_list]), 2)
             save_to_csv(roc_auc, average_precision, cm, num, f'{folder_path}/{target}_confusion_metrics.csv')
             shutil.rmtree(f'{folder_path}/{num}')
+
+        # supervised_model.eval()
+        # tt = torch.jit.trace(supervised_model, inputs).to('cuda:0')
+        # tt.save('D:/JHChun/model_weight/zumul/before/zumul_supervised.pth')
+
+        

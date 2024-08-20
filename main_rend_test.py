@@ -7,8 +7,6 @@ from models import Supervised
 from test import test_only
 from log import setup_default_logging
 from RD4AD import resnet
-import time
-
 _logger = logging.getLogger('train')
 
 
@@ -16,7 +14,7 @@ def run_test(cfg):
     # setting seed and device
     setup_default_logging()
 
-    device = 'cuda:2' if torch.cuda.is_available() else 'cpu'
+    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     _logger.info('Device: {}'.format(device))
 
     # build datasets
@@ -46,32 +44,27 @@ def run_test(cfg):
     RD4AD_encoder = RD4AD_encoder.to(device)
     RD4AD_encoder.eval()
 
+
     supervised_model = Supervised(feature_extractor = RD4AD_encoder).to(device)
 
-    # Fitting models
-    for j in range(49, 100, 55):
-        epoch = (j+1)
-        file_path = cfg['Test']['model_weight']
-        #file_path = f'D:/JHChun/model_weight/head/0813/supervised_model_0813_{epoch}.pth'
+    # Fitting model
+    for j in range(0,250):
+        print((j+1)*20 ,"epoch model testing...")
+        file_path = f'D:/DYP/model_weight/rend/super/supervised_model_{(j+1)*20}.pth'
         folder_path = cfg['Test']['result_dir']
         supervised_model = torch.jit.load(file_path).to(device)
         supervised_model.eval()
 
-        test_only(
-        supervised_model=supervised_model,
-        dataloader=testloader,
-        folder_path=folder_path,
-        num=epoch,
-        target=cfg['DataSet']['target'],
-        device=device
-        )
-
-        #time.sleep(120)
-
-
+        # test_only(
+        # supervised_model=supervised_model,
+        # dataloader=testloader,
+        # folder_path=folder_path,
+        # num=(j+1)*20,
+        # target=cfg['DataSet']['target'],
+        # device=device
+        # )
 
 if __name__=='__main__':
     config = ConfigParser()
-    config.read('configs/head_config.ini')
-    #time.sleep(600)
+    config.read('configs/rend_config.ini')
     run_test(config)

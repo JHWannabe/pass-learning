@@ -6,7 +6,7 @@ import torch.nn as nn
 from data import create_dataset, create_dataloader
 from models import Supervised
 from focal_loss import FocalLoss
-from train import training_unsupervise
+from train import training_rend_supervise
 from log import setup_default_logging
 from scheduler import CosineAnnealingWarmupRestarts
 from RD4AD import resnet
@@ -34,10 +34,11 @@ def run_training(cfg):
         texture_source_dir     = cfg['DataSet']['texture_source_dir'],
         structure_grid_size    = int(cfg['DataSet']['structure_grid_size']),
         transparency_range     = [float(cfg['DataSet']['transparency_range_under_bound']), float(cfg['DataSet']['transparency_range_upper_bound'])],
-        perlin_scale           = int(cfg['DataSet']['perlin_scale']),
-        min_perlin_scale       = int(cfg['DataSet']['min_perlin_scale']),
+        perlin_scale           = int(cfg['DataSet']['perlin_scale']), 
+        min_perlin_scale       = int(cfg['DataSet']['min_perlin_scale']), 
         perlin_noise_threshold = float(cfg['DataSet']['perlin_noise_threshold']),
-        retraining = False
+        retraining = True,
+        retraining_period = 0
     )
 
     testset = create_dataset(
@@ -48,8 +49,8 @@ def run_training(cfg):
         texture_source_dir     = cfg['DataSet']['texture_source_dir'],
         structure_grid_size    = int(cfg['DataSet']['structure_grid_size']),
         transparency_range     = [float(cfg['DataSet']['transparency_range_under_bound']), float(cfg['DataSet']['transparency_range_upper_bound'])],
-        perlin_scale           = int(cfg['DataSet']['perlin_scale']),
-        min_perlin_scale       = int(cfg['DataSet']['min_perlin_scale']),
+        perlin_scale           = int(cfg['DataSet']['perlin_scale']), 
+        min_perlin_scale       = int(cfg['DataSet']['min_perlin_scale']), 
         perlin_noise_threshold = float(cfg['DataSet']['perlin_noise_threshold'])
     )
     
@@ -99,7 +100,7 @@ def run_training(cfg):
 
     optimizer = torch.optim.AdamW(
         params       = filter(lambda p: p.requires_grad, supervised_model.parameters()),
-        lr           = float(cfg['Optimizer']['unsuper_lr']),
+        lr           = float(cfg['Optimizer']['super_lr']),
         weight_decay = float(cfg['Optimizer']['weight_decay'])
     )
 
@@ -107,7 +108,7 @@ def run_training(cfg):
         scheduler = CosineAnnealingWarmupRestarts(
             optimizer, 
             first_cycle_steps = int(cfg['Train']['epochs']),
-            max_lr = float(cfg['Optimizer']['unsuper_lr']),
+            max_lr = float(cfg['Optimizer']['super_lr']),
             min_lr = float(cfg['Scheduler']['min_lr']),
             warmup_steps   = int(int(cfg['Train']['epochs']) * float(cfg['Scheduler']['warmup_ratio']))
         )
@@ -115,14 +116,13 @@ def run_training(cfg):
         scheduler = None
 
     # Fitting model
-    training_unsupervise(
+    training_rend_supervise(
         supervised_model = supervised_model,
         num_training_steps = int(cfg['Train']['epochs']),
         trainloader        = trainloader, 
         validloader        = testloader, 
         criterion          = [l1_criterion, f_criterion], 
         loss_weights       = [float(cfg['Train']['l1_weight']), float(cfg['Train']['focal_weight'])],
-        resize             = (int(cfg['DataSet']['resize(h)']), int(cfg['DataSet']['resize(w)'])),
         optimizer          = optimizer,
         scheduler          = scheduler,
         log_interval       = int(cfg['Log']['log_interval']),
@@ -134,5 +134,5 @@ def run_training(cfg):
 
 if __name__=='__main__':
     config = ConfigParser()
-    config.read('configs/skirt_config.ini')
+    config.read('configs/rend_config.ini')
     run_training(config)
