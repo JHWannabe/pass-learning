@@ -249,8 +249,6 @@ class ResNet(nn.Module):
 
         x = self.bn1(x)
 
-
-
         act1 = self.relu(x)
 
         x = self.maxpool(act1)

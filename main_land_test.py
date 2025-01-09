@@ -8,14 +8,16 @@ from test import test_only
 from log import setup_default_logging
 from RD4AD import resnet
 import time
-_logger = logging.getLogger('train')
+import warnings
+
+_logger = logging.getLogger('test')
 
 
 def run_test(cfg):
     # setting seed and device
     setup_default_logging()
 
-    device = 'cuda:3' if torch.cuda.is_available() else 'cpu'
+    device = 'cuda:2' if torch.cuda.is_available() else 'cpu'
     _logger.info('Device: {}'.format(device))
 
     # build datasets
@@ -49,10 +51,10 @@ def run_test(cfg):
     supervised_model = Supervised(feature_extractor = RD4AD_encoder).to(device)
 
     # Fitting model
-    for j in range(1, 100, 2):
+    for j in range(3, 100, 4):
         epoch = (j+1)
         file_path = cfg['Test']['model_weight']
-        file_path = f'D:/JHChun/model_weight/land/0819/supervised_model_0819_{epoch}.pth'
+        file_path = f'D:/JHChun/model_weight/land/1028/supervised_model_1028_{epoch}.pth'
         folder_path = cfg['Test']['result_dir']
         supervised_model = torch.jit.load(file_path).to(device)
         supervised_model.eval()
@@ -66,10 +68,13 @@ def run_test(cfg):
         device=device
         )
 
-        #time.sleep(30)
 
 if __name__=='__main__':
+    
+    # 모든 경고 무시
+    warnings.filterwarnings("ignore")
+
     config = ConfigParser()
     config.read('configs/land_config.ini')
-    time.sleep(100)
+    time.sleep(300)
     run_test(config)

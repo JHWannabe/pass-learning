@@ -18,7 +18,7 @@ def run_training(cfg):
     # setting seed and device
     setup_default_logging()
 
-    device = 'cuda:1' if torch.cuda.is_available() else 'cpu'
+    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     _logger.info('Device: {}'.format(device))
 
     savedir = cfg['Result']['save_dir']
@@ -109,7 +109,7 @@ def run_training(cfg):
             first_cycle_steps = 5000,    #int(cfg['Train']['epochs']),
             max_lr = float(cfg['Optimizer']['unsuper_lr']),
             min_lr = float(cfg['Scheduler']['min_lr']),
-            warmup_steps   = 500        #int(int(cfg['Train']['epochs']) * float(cfg['Scheduler']['warmup_ratio']))
+            warmup_steps   = 1       #int(int(cfg['Train']['epochs']) * float(cfg['Scheduler']['warmup_ratio']))
         )
     else:
         scheduler = None
@@ -122,7 +122,6 @@ def run_training(cfg):
         validloader        = testloader, 
         criterion          = [l1_criterion, f_criterion], 
         loss_weights       = [float(cfg['Train']['l1_weight']), float(cfg['Train']['focal_weight'])],
-        resize             = (int(cfg['DataSet']['resize(h)']), int(cfg['DataSet']['resize(w)'])),
         optimizer          = optimizer,
         scheduler          = scheduler,
         log_interval       = int(cfg['Log']['log_interval']),

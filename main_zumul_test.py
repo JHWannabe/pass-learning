@@ -8,14 +8,14 @@ from test import test_only
 from log import setup_default_logging
 from RD4AD import resnet
 import time
-_logger = logging.getLogger('train')
+_logger = logging.getLogger('test')
 
 
 def run_test(cfg):
     # setting seed and device
     setup_default_logging()
 
-    device = 'cuda:2' if torch.cuda.is_available() else 'cpu'
+    device = 'cuda:1' if torch.cuda.is_available() else 'cpu'
     _logger.info('Device: {}'.format(device))
 
     # build datasets
@@ -48,12 +48,12 @@ def run_test(cfg):
 
     supervised_model = Supervised(feature_extractor = RD4AD_encoder).to(device)
 
-    # Fitting model
-    for j in range(1, 100, 2):
+    # Fitting models
+    for j in range(0, 100, 5):
         epoch = (j+1)
-        print(f'[{epoch}]', end=' ')
+        date = '1128'
         file_path = cfg['Test']['model_weight']
-        file_path = f'D:/JHChun/model_weight/zumul/0819/supervised_model_0819_{epoch}.pth'
+        file_path = f'//192.168.10.230/JHChun/model_weight/zumul/{date}/supervised_model_{date}_{epoch}.pth'
         folder_path = cfg['Test']['result_dir']
         supervised_model = torch.jit.load(file_path).to(device)
         supervised_model.eval()
@@ -73,5 +73,5 @@ def run_test(cfg):
 if __name__=='__main__':
     config = ConfigParser()
     config.read('configs/zumul_config.ini')
-    time.sleep(300)
+    #time.sleep(1200)
     run_test(config)

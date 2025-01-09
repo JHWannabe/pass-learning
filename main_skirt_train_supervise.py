@@ -6,23 +6,20 @@ import torch.nn as nn
 from data import create_dataset, create_dataloader
 from models import Supervised
 from focal_loss import FocalLoss
-from train import training_supervise, training_iter_supervise
+from train import training_supervise, training_4ch_supervise, write_to_memory_mapped_file
 from log import setup_default_logging
 from scheduler import CosineAnnealingWarmupRestarts
 from RD4AD import resnet
-from configparser import ConfigParser
 import warnings
+from configparser import ConfigParser
 
-# 모든 경고 무시
-warnings.filterwarnings("ignore")
-
-_logger = logging.getLogger('train')
+_logger = logging.getLogger('supervise')
 
 def run_training(cfg):
     # setting seed and device
-    setup_default_logging()
+    gpu_num = cfg['Train']['Device_GPU']
 
-    device = 'cuda:1' if torch.cuda.is_available() else 'cpu'
+    device = f'cuda:{gpu_num}' if torch.cuda.is_available() else 'cpu'
     _logger.info('Device: {}'.format(device))
 
     savedir = cfg['Result']['save_dir']
@@ -38,9 +35,10 @@ def run_training(cfg):
         texture_source_dir     = cfg['DataSet']['texture_source_dir'],
         structure_grid_size    = int(cfg['DataSet']['structure_grid_size']),
         transparency_range     = [float(cfg['DataSet']['transparency_range_under_bound']), float(cfg['DataSet']['transparency_range_upper_bound'])],
-        perlin_scale           = int(cfg['DataSet']['perlin_scale']),
-        min_perlin_scale       = int(cfg['DataSet']['min_perlin_scale']),
+        perlin_scale           = int(cfg['DataSet']['perlin_scale']), 
+        min_perlin_scale       = int(cfg['DataSet']['min_perlin_scale']), 
         perlin_noise_threshold = float(cfg['DataSet']['perlin_noise_threshold']),
+        dataset_path           = cfg['Train']['DataSet'],
         retraining = True,
         retraining_period = 0
     )
@@ -53,11 +51,12 @@ def run_training(cfg):
         texture_source_dir     = cfg['DataSet']['texture_source_dir'],
         structure_grid_size    = int(cfg['DataSet']['structure_grid_size']),
         transparency_range     = [float(cfg['DataSet']['transparency_range_under_bound']), float(cfg['DataSet']['transparency_range_upper_bound'])],
-        perlin_scale           = int(cfg['DataSet']['perlin_scale']),
-        min_perlin_scale       = int(cfg['DataSet']['min_perlin_scale']),
-        perlin_noise_threshold = float(cfg['DataSet']['perlin_noise_threshold'])
+        perlin_scale           = int(cfg['DataSet']['perlin_scale']), 
+        min_perlin_scale       = int(cfg['DataSet']['min_perlin_scale']), 
+        perlin_noise_threshold = float(cfg['DataSet']['perlin_noise_threshold']),
+        dataset_path           = cfg['Train']['DataSet']
     )
-    
+
     # build dataloader
     trainloader = create_dataloader(
         dataset     = trainset,
@@ -69,12 +68,14 @@ def run_training(cfg):
     testloader = create_dataloader(
         dataset     = testset,
         train       = False,
-        batch_size  = 1,
+        batch_size  = int(cfg['DataLoader']['batch_size']),
         num_workers = int(cfg['DataLoader']['num_workers'])
     )
 
     # load RD4AD network
-    RD4AD_encoder, RD4AD_bn = resnet.resnet18(pretrained=True)
+    RD4AD_encoder, RD4AD_bn = resnet.resnet18(pretrained=False)
+    RD4AD_encoder.conv1 = nn.Conv2d(4, 64, kernel_size=7, stride=2, padding=3, bias=False)
+
     RD4AD_encoder = RD4AD_encoder.to(device)
 
     for name, param in RD4AD_encoder.named_parameters():
@@ -84,17 +85,16 @@ def run_training(cfg):
             param.requires_grad = False
         if 'layer3' in name:
             param.requires_grad = False
-        if 'layer4' in name:
-            param.requires_grad = False
+
 
     RD4AD_encoder.train()
 
     supervised_model = Supervised(feature_extractor = RD4AD_encoder).to(device)
+    #print(supervised_model)
 
     # Transfer Learning
-    transfer = cfg.getboolean('Train', 'transfer')
-    if(transfer):
-        transfer_learning_model = cfg['Train']['transfer_learning_model']
+    if cfg['Train']['transfer'] == 'True':
+        transfer_learning_model = cfg['Train']['transfer_learning_dir']
         supervised_model = torch.jit.load(transfer_learning_model).to(device)
 
     # Set training
@@ -106,7 +106,7 @@ def run_training(cfg):
 
     optimizer = torch.optim.AdamW(
         params       = filter(lambda p: p.requires_grad, supervised_model.parameters()),
-        lr           = float(cfg['Optimizer']['super_lr']),
+        lr           = float(cfg['Optimizer']['learning_rate']),
         weight_decay = float(cfg['Optimizer']['weight_decay'])
     )
 
@@ -114,15 +114,15 @@ def run_training(cfg):
         scheduler = CosineAnnealingWarmupRestarts(
             optimizer, 
             first_cycle_steps = int(cfg['Train']['epochs']),
-            max_lr = float(cfg['Optimizer']['super_lr']),
-            min_lr = float(cfg['Scheduler']['min_lr']),
+            max_lr = float(cfg['Optimizer']['learning_rate']),
+            min_lr = float(cfg['Scheduler']['min_learning_rate']),
             warmup_steps   = int(int(cfg['Train']['epochs']) * float(cfg['Scheduler']['warmup_ratio']))
         )
     else:
         scheduler = None
 
     # Fitting model
-    training_iter_supervise(
+    training_4ch_supervise(
         supervised_model = supervised_model,
         num_training_steps = int(cfg['Train']['epochs']),
         trainloader        = trainloader, 
@@ -140,6 +140,17 @@ def run_training(cfg):
     )
 
 if __name__=='__main__':
+    warnings.filterwarnings('ignore')
+    setup_default_logging()
     config = ConfigParser()
-    config.read('configs/skirt_config.ini')
+    # D:\DeepLearningStudio\common\bin\x64\config\skirt_config.ini
+    exe_path = os.path.dirname(os.path.abspath(__file__))  # 현재 스크립트의 디렉토리 경로
+    parent_path = os.path.abspath(os.path.join(exe_path, "../../"))
+    file_path = os.path.join(parent_path, "common", "bin", "x64", "config", "skirt_config.ini")
+    file_path = 'D:\JHChun\DeepLearningStudio\python\code\configs\skirt_config.ini'
+    _logger.info('train')
+    _logger.info(f'config path : {file_path}')
+    config.read(file_path)
+    write_to_memory_mapped_file(0, 0.0, 0.0, 0.0, 0.0)
     run_training(config)
+    # pyinstaller .\main_skirt_train_supervise.py   ("../../")

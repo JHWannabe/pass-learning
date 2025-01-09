@@ -73,15 +73,15 @@ def run_training(cfg):
     RD4AD_encoder, RD4AD_bn = resnet.resnet18(pretrained=True)
     RD4AD_encoder = RD4AD_encoder.to(device)
 
-    for name, param in RD4AD_encoder.named_parameters():
-        if 'layer1' in name:
-            param.requires_grad = False
-        if 'layer2' in name:
-            param.requires_grad = False
-        if 'layer3' in name:
-            param.requires_grad = False
-        if 'layer4' in name:
-            param.requires_grad = False
+    # for name, param in RD4AD_encoder.named_parameters():
+    #     if 'layer1' in name:
+    #         param.requires_grad = False
+    #     if 'layer2' in name:
+    #         param.requires_grad = False
+    #     if 'layer3' in name:
+    #         param.requires_grad = False
+    #     if 'layer4' in name:
+    #         param.requires_grad = False
 
     RD4AD_encoder.train()
 

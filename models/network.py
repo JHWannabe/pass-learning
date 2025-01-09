@@ -58,7 +58,6 @@ class Supervised(nn.Module):
         # extract features
         features = self.feature_extractor(img)
         f_in = features[0]
-        # torch.save(f_in, "python_x.pt")
         f_out = features[-1]
         f_ii = features[1:-1]
 
@@ -70,7 +69,7 @@ class Supervised(nn.Module):
         )
 
         return predicted_mask
-
+    
 
 class Unsupervised(nn.Module):
     def __init__(self, RD4AD_bn, RD4AD_decoder, feature_extractor):
