@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 
 from data import create_dataset, create_dataloader
-from models import Supervised, Unsupervised, EfficientAdModel
+from models import Supervised, Unsupervised
 from focal_loss import FocalLoss
 from train import training_unsupervise, write_to_memory_mapped_file
 from log import setup_default_logging
@@ -86,7 +86,7 @@ def run_training(cfg):
 
     RD4AD_encoder.train()
 
-    supervised_model = EfficientAdModel(teacher_out_channels=1).to(device)
+    supervised_model = Supervised(feature_extractor = RD4AD_encoder).to(device)
 
     # Transfer Learning
     if cfg['Train']['transfer'] == True:
@@ -142,7 +142,7 @@ if __name__=='__main__':
     exe_path = os.path.dirname(os.path.abspath(__file__))  # 현재 스크립트의 디렉토리 경로
     parent_path = os.path.abspath(os.path.join(exe_path, "../../"))
     file_path = os.path.join(parent_path, "common", "bin", "x64", "config", "head_config.ini")
-    file_path = 'D:\JHChun\DeepLearningStudio\python\code\configs\head_config.ini'
+    file_path = '.\configs\mvtec_config.ini'
     _logger.info('train')
     _logger.info(f'config path : {file_path}')
     config.read(file_path)

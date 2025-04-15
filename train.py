@@ -17,7 +17,6 @@ import ctypes
 import onnx
 import onnxruntime
 from torchvision.transforms import ToPILImage
-from cutmix.attentive_transform import AttentiveInputTransform, GetAttentiveRegions
 
 
 _logger = logging.getLogger('train')
@@ -37,8 +36,8 @@ def cvt2heatmap(gray):
 
 #file_path = "D:/DeepLearningStudio/common/bin/x64/config/train_mmf.dat"
 exe_path = os.path.dirname(os.path.abspath(__file__))  # 현재 스크립트의 디렉토리 경로
-parent_path = os.path.abspath(os.path.join(exe_path, "../../"))
-file_path = os.path.join(parent_path, "common", "bin", "x64", "config", "train_mmf.dat")
+parent_path = os.path.abspath(os.path.join(exe_path))
+file_path = os.path.join(parent_path, "configs", "train_mmf.dat")
 _logger.info(file_path)
 file_size = 1024  # 1KB
 mutex_name = "Global\\memorymapmutex"
@@ -335,10 +334,6 @@ def training_iter_supervise(supervised_model, trainloader, validloader, criterio
     for i in range(num_training_steps):
         end = time.time()
         s_losses_m.reset()
-        #img_count = 1
-
-        place_holder = {}
-        at = AttentiveInputTransform(dataset=trainloader.dataset,placeholder=place_holder)
 
         supervised_model = supervised_model.to(device)
         
@@ -346,28 +341,6 @@ def training_iter_supervise(supervised_model, trainloader, validloader, criterio
         for inputs, masks in tqdm(trainloader, desc=f"Epoch {i+1}", leave=False):
             # batch
             inputs, masks = inputs.to(device), masks.to(device)
-
-            inputs, masks = at(inputs, masks)
-
-            # # 저장 디렉토리 확인 및 생성
-            # save_dir = "./saved_images"
-            # os.makedirs(save_dir, exist_ok=True)
-
-            # # 첫 번째 이미지만 저장 (배치 중 하나 선택)
-            # input_image = inputs[0].cpu().numpy()  # GPU에서 CPU로 옮기고 NumPy로 변환
-
-            # # 이미지가 (C, H, W) 형태일 경우 (H, W, C)로 변경
-            # input_image = np.transpose(input_image, (1, 2, 0))
-
-            # # OpenCV는 [0, 1] 범위가 아닌 [0, 255] 범위를 기대하므로 스케일 조정
-            # input_image = (input_image * 255).astype(np.uint8)
-
-            # # 이미지 저장 경로
-            # save_path = os.path.join(save_dir, f"cutmix_{img_count+1}.jpg")
-
-            # # 이미지 저장
-            # cv2.imwrite(save_path, input_image)
-            # print(f"Image saved to {save_path}")
 
             # predict 1
             s_outputs = supervised_model(inputs).to(device)
@@ -396,8 +369,6 @@ def training_iter_supervise(supervised_model, trainloader, validloader, criterio
             if scheduler:
                 scheduler.step(step)
 
-            #img_count += 1
-        
         data_time_m.update(time.time() - end)
 
         _logger.info('\nTRAIN [{:>4d}/{}] '
@@ -440,9 +411,6 @@ def training_iter_supervise(supervised_model, trainloader, validloader, criterio
                   do_constant_folding=True if device == 'cpu' else False, 
 				  input_names = ['input'],
                   output_names = ['output'])
-        
-        # onnx_model = onnx.load(onnx_path)
-        # assert onnx.checker.check_model(onnx_model) == None
 
 def training_output_ensemble(supervised_model, trainloader, validloader, criterion, optimizer,
              scheduler, num_training_steps: int = 1000, loss_weights: List[float] = [0.6, 0.4], resize: Tuple[int, int] = (224,224),
@@ -823,10 +791,6 @@ def training_output_a_cutmix_ensemble(supervised_model, trainloader, validloader
     supervised_model2.train()
     supervised_model3.train()
     
-    place_holder = {}
-    at = AttentiveInputTransform(dataset=trainloader.dataset,placeholder=place_holder)
-    ar = GetAttentiveRegions()
-
     # criterion
     l1_criterion, focal_criterion = criterion
     l1_weight, focal_weight = loss_weights
@@ -852,12 +816,6 @@ def training_output_a_cutmix_ensemble(supervised_model, trainloader, validloader
             # batch
             inh, rgh, rgv, masks = inh.to(device), rgh.to(device), rgv.to(device), masks.to(device)
             
-            attentive_regions = ar(inh)
-            
-            rgh, masks = at(rgh, masks, rand_indices, attentive_regions, gridd, 1)
-            inh, masks = at(inh, masks, rand_indices, attentive_regions, gridd, 0)
-            rgv, masks = at(rgv, masks, rand_indices, attentive_regions, gridd, 2)
-
             # predict 1
             s_output1 = supervised_model1(inh).to(device)
             s_output2 = supervised_model2(rgh).to(device)
@@ -952,10 +910,6 @@ def training_loss_a_cutmix_ensemble(supervised_model, trainloader, validloader, 
     supervised_model1.train()
     supervised_model2.train()
     supervised_model3.train()
-    
-    place_holder = {}
-    at = AttentiveInputTransform(dataset=trainloader.dataset,placeholder=place_holder)
-    ar = GetAttentiveRegions()
 
     # criterion
     l1_criterion, focal_criterion = criterion
@@ -982,12 +936,6 @@ def training_loss_a_cutmix_ensemble(supervised_model, trainloader, validloader, 
             # batch
             inh, rgh, rgv, masks = inh.to(device), rgh.to(device), rgv.to(device), masks.to(device)
             
-            attentive_regions = ar(inh)
-            
-            rgh, masks = at(rgh, masks, rand_indices, attentive_regions, gridd, 1)
-            inh, masks = at(inh, masks, rand_indices, attentive_regions, gridd, 0)
-            rgv, masks = at(rgv, masks, rand_indices, attentive_regions, gridd, 2)
-
             # predict 1
             s_output1 = supervised_model1(inh).to(device)
             s_output2 = supervised_model2(rgh).to(device)
@@ -1094,10 +1042,6 @@ def training_dynamic_loss_a_cutmix_ensemble(supervised_model, trainloader, valid
     supervised_model1.train()
     supervised_model2.train()
     supervised_model3.train()
-    
-    place_holder = {}
-    at = AttentiveInputTransform(dataset=trainloader.dataset,placeholder=place_holder)
-    ar = GetAttentiveRegions()
 
     # criterion
     l1_criterion, focal_criterion = criterion
@@ -1123,11 +1067,6 @@ def training_dynamic_loss_a_cutmix_ensemble(supervised_model, trainloader, valid
             gridd = np.random.randint(32, 128)
             # Batch 데이터 전처리
             inh, rgh, rgv, masks = inh.to(device), rgh.to(device), rgv.to(device), masks.to(device)
-
-            attentive_regions = ar(inh)
-            rgh, masks = at(rgh, masks, rand_indices, attentive_regions, gridd, 1)
-            inh, masks = at(inh, masks, rand_indices, attentive_regions, gridd, 0)
-            rgv, masks = at(rgv, masks, rand_indices, attentive_regions, gridd, 2)
 
             # 예측 및 손실 계산
             outputs = []
